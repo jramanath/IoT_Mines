@@ -1,4 +1,8 @@
-#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+Ce script est une extraction du package bluepy, il contient les fonctionnalités
+nécessaires pour faire tourner le ble
+"""
 
 from __future__ import print_function
 
@@ -11,6 +15,7 @@ import binascii
 import select
 import struct
 
+
 Debugging = False
 script_path = os.path.join(os.path.abspath(os.path.dirname(__file__)))
 helperExe = os.path.join(script_path, "bluepy-helper")
@@ -21,6 +26,7 @@ SEC_LEVEL_HIGH = "high"
 
 ADDR_TYPE_PUBLIC = "public"
 ADDR_TYPE_RANDOM = "random"
+
 
 def DBG(*args):
     if Debugging:
@@ -95,6 +101,7 @@ class UUID:
                 s = s[4:]
         return s
 
+
 class Service:
     def __init__(self, *args):
         (self.peripheral, uuidVal, self.hndStart, self.hndEnd) = args
@@ -113,6 +120,7 @@ class Service:
         return "Service <uuid=%s handleStart=%s handleEnd=%s>" % (self.uuid.getCommonName(),
                                                                  self.hndStart,
                                                                  self.hndEnd)
+
 
 class Characteristic:
     # Currently only READ is used in supportsRead function,
