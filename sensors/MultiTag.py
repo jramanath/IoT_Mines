@@ -1,4 +1,6 @@
-#!/usr/bin/env python
+"""
+Ce script permet d'aggréger les données de tous les capteurs utilisés
+"""
 from bluepy.btle import Scanner
 from bluepy import sensortag
 
