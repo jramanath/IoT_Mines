@@ -33,33 +33,33 @@ def merge_TF_files(folder):
     for filename in allFiles :
         print filename
         with gzip.open(folder+'\\'+filename) as data_file:
-            row= data_file.readline()
-            try:
-                data = json.loads(row)
-            except:
-                print 'error loading '+filename
-                continue
-            local=np.zeros((26,1))
-            try :
-                local[0]=time.mktime(datetime.datetime.strptime(data['thetime'], '%a, %d %b %Y %H:%M:%S GMT').timetuple())+1*60*60 # Warning for UTC to local time conversion here
-            except ValueError :
-                local[0]=time.mktime(datetime.datetime.strptime(data['thetime'], '%a, %d %b %Y %H:%M:%S').timetuple())+1*60*60
-            except Exception as e :
-                print e
-                pass
-
-            local[1]=data['c02']
-            meas=data['MC350']
-            i=0
-            for iD in meas:
-                tmp=meas[iD]
-                local[2+i]=tmp[0]
-                local[6+i]=tmp[1]
-                local[10+i]=tmp[2]
-                local[14+i]=tmp[3]
-                local[18+i]=tmp[4]
-                local[22+i]=tmp[5]
-                i+=1
+            for row in data_file.readlines():
+                try:
+                    data = json.loads(row)
+                except:
+                    print 'error loading '+filename
+                    continue
+                local=np.zeros((26,1))
+                try :
+                    local[0]=time.mktime(datetime.datetime.strptime(data['thetime'], '%a, %d %b %Y %H:%M:%S GMT').timetuple())+1*60*60 # Warning for UTC to local time conversion here
+                except ValueError :
+                    local[0]=time.mktime(datetime.datetime.strptime(data['thetime'], '%a, %d %b %Y %H:%M:%S').timetuple())+1*60*60
+                except Exception as e :
+                    print e
+                    pass
+    
+                local[1]=data['c02']
+                meas=data['MC350']
+                i=0
+                for iD in meas:
+                    tmp=meas[iD]
+                    local[2+i]=tmp[0]
+                    local[6+i]=tmp[1]
+                    local[10+i]=tmp[2]
+                    local[14+i]=tmp[3]
+                    local[18+i]=tmp[4]
+                    local[22+i]=tmp[5]
+                    i+=1
                 output=np.vstack((output,local.transpose()))
     output=np.delete(output,0,0)
     return output
