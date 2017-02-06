@@ -12,6 +12,13 @@ https://docs.djangoproject.com/en/1.9/ref/settings/
 
 import os
 
+# import environment-specific configuration
+from .settings_env import (
+    LOGS_DIR,
+    AWS_ACCESS_KEY_ID,
+    AWS_SECRET_ACCESS_KEY
+)
+
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 

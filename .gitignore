@@ -1,2 +1,5 @@
 *.pyc
 .idea/
+
+# fichier de config
+sensors_manager/sensors_manager/settings_env.py
