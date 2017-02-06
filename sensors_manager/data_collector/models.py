@@ -21,3 +21,6 @@ class DataLoader(models.Model):
     class Meta(object):
         managed = True
         db_table = 'data_loader'
+
+
+#  Créer le modèle des autres tables
