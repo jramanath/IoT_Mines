@@ -2,41 +2,38 @@
 """
 Une vue générique de notre collecteur de données
 
-default_view renvoie le nb de point de mesure actuellement
-collecté
+default_view renvoie le nb de point de mesure actuellement collecté
 """
 
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.core.exceptions import ValidationError
+from data_collector.models import DataTISensor, DataWindowsSensor, DataLoader
 
 import logging
 import json
 import urllib
 
 
-class Response(HttpResponse):
+def default_response(output=None, http_status=200):
     """
-    Base pour toutes les réponses
+    Base de toutes les réponses sur la vue par défaut
     """
 
-    def __init__(self, http_status=200, output=None):
+    if output is None:
+        output = {
+            'nb_fichiers_charges': 0,
+            'execution': 'OK',
+        }
 
-        if output is None:
-            output = json.dumps(
-                {
-                    'nb_point': 0,
-                    'execution': 'OK'
-                }, ensure_ascii=False, encoding="UTF8")
+    output = json.dumps(output, ensure_ascii=False, encoding="UTF8")
 
-        logger = logging.getLogger(__name__)
-        logger.info("Response: %s", output)
+    logger = logging.getLogger(__name__)
+    logger.info("Response: %s", output)
 
-        super(Response, self).__init__(
-            output,
-            content_type="application/json; charset=utf-8",
-            status=http_status,
-        )
+    response = HttpResponse(output, content_type="application/json; charset=utf-8",
+                            status=http_status)
+
+    return response
 
 
 @csrf_exempt
@@ -47,5 +44,17 @@ def default_view(request):
     logger = logging.getLogger(__name__)
     logger.info("%s %s", request.method, urllib.unquote(request.body))
 
-    return Response(output=None)
+    # compter le nombre de mesures / fichiers chargées
+    nb_fichier = DataLoader.objects.count()
+    nb_mesures_TI = DataTISensor.objects.count()
+    nb_mesures_windows = DataWindowsSensor.objects.count()
+
+    output = {
+        'nb_fichiers_charges': nb_fichier,
+        'nb_mesures_TI': nb_mesures_TI,
+        'nb_mesures_windows': nb_mesures_windows,
+        'execution': 'OK',
+    }
+
+    return default_response(output=output)
 

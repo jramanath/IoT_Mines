@@ -18,7 +18,8 @@ import os
 from .settings_env import (
     LOGS_DIR,
     AWS_ACCESS_KEY_ID,
-    AWS_SECRET_ACCESS_KEY
+    AWS_SECRET_ACCESS_KEY,
+    BUCKET_NAME,
 )
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
@@ -48,6 +49,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_nose',
     'django_extensions',
+    'constance',
+    'constance.backends.database',
 ]
 
 MINES_APPS = [
@@ -55,6 +58,8 @@ MINES_APPS = [
 ]
 
 INSTALLED_APPS += MINES_APPS
+
+CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
 
 MIDDLEWARE_CLASSES = [
     'django.middleware.security.SecurityMiddleware',
