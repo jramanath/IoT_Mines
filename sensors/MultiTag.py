@@ -1,4 +1,6 @@
-﻿"""
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
 ce script permet d'aggréger les données de tous les capteurs utilisés
 """
 from bluepy.btle import Scanner
