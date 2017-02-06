@@ -11,14 +11,23 @@ from time import gmtime, strftime, sleep
 import numpy as np
 import requests,json
 
+import boto3
+from botocore.client import Config
+from botocore.exceptions import ClientError
+
+s3_client = boto3.client('s3')
+s3 = boto3.resource('s3')
+
+#On se connecte au serveur S3
+
 def autopairing(timeout=10.0,devices=None):
     '''Autoscan BLE for neighbouring advertising Sensortag and turn on environmental sensors
-    '''    
+    '''
     if devices is None: # Auto scan if no sensors are provided
         BLE=Scanner()
         print "scanning in progress \n"
         devices = BLE.scan(timeout)
-        
+
     Sensors=[]
     dev_list='Liste : \n'
     for dev in devices:
@@ -37,7 +46,7 @@ def autopairing(timeout=10.0,devices=None):
                     tag.IRtemperature.enable()
                     Sensors.append(tag)
                     break
-                except Exception as e: # it happens the sensors failed to start for some reasons. Retrying is usually enough to connect. 
+                except Exception as e: # it happens the sensors failed to start for some reasons. Retrying is usually enough to connect.
                     print e
                     print "Sensor disconnected, retrying"
                     idx+=1
@@ -47,17 +56,17 @@ def autopairing(timeout=10.0,devices=None):
                     print "Forgetting about THAT sensor"
                     break
                 # if everything goes well, add the sensors to the list
-                
+
     del devices
     return Sensors
-     
-    
+
+
 def acquire(Sensors):
-    '''Read sensors measured value and return a data dictionary 
-    
-    Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash. 
+    '''Read sensors measured value and return a data dictionary
+
+    Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash.
     '''
-    
+
     data={}
     data['LocalTime']=gmtime()
     for tag in Sensors:
@@ -69,38 +78,31 @@ def acquire(Sensors):
         meas['T']=loc[0] # T in degC
         meas['RH']=loc[1] #HR in %
         meas['Illum']=tag.lightmeter.read() # Illuminance
-        # Add relevant measurement here. 
-        
+        # Add relevant measurement here.
+
         # Adding the measured value to the globale dict.
         data[tag.addr]=meas
-  
+    #data["heure"]=gmtime()...
+#on met l'heure une seule fois dans le json des mesures de tous les capteurs
+
     return data
 
 
 
-def sendJson(data,session=None):
+def sendJson(data):
     """send JSON to Amazon bucket """
-    if not session:
-        session=requests.Session() # keep session alive
-        session.headers = {'Content-Type': 'application/json','Accept': 'application/json'} # typical, modify to add credentials if needed
-        session.proxies={} # Add proxies if needed
-        session.url='' # input address of the server here
-        last_data=open('unsent_data.json', 'w') # create back-up file
-        last_data.write('')
-        last_data.close()
-
-    try:
+#Partie sur if not session enlevée
+    last_data=open('unsent_data.json', 'w') # create back-up file
+    '''last_data.write('')
+    last_data.close() #pourquoi on le ferme mtnt'''
+    try :
         with open('unsent_data.json', 'a+') as last_data:
-            last_data.write(json.dumps(data)+'\r\n') # save data in case of something bad happen
+            last_data.write(json.dumps(data, indent = 4)) # save data in case of something bad happen
+    s3_client.upload_file('last_data.txt', 'sensortag','last_data.txt')
 
-        with open('unsent_data.json', 'a+') as last_data:
-            data_=last_data.readlines()
-            
-            
-
-        for text in data_:
+     '''for text in data_:
             res=self._session.post(self.url,data=text) # adapt to fit your server API ! (this is for Amazon S3 server)
-        
+
             if res.status_code != 200:
                 common.display('HTTP : ' +res.content)
                 break
@@ -109,11 +111,13 @@ def sendJson(data,session=None):
             last_data=open('unsent_data.json', 'w')
             last_data.write('')
             last_data.close()
-            
+
     except Exception as e:
-        print('HTTP : ' + str(e.message)) # not crashing if error
+        print('HTTP : ' + str(e.message)) # not crashing if error'''
+
     finally:
-        return session
+        last_data.close()
+
 
 def dispData(verbose,data=None):
         ''' display data if verbose is True and data are provided'''
@@ -123,11 +127,11 @@ def dispData(verbose,data=None):
         first=True
         for k in data.keys():
             if not 'LocalTime' in k:
-                if first : 
+                if first :
                     print  strftime("%d %b %Y %H:%M:%S", data['LocalTime'])+'  :  ' + str(data[k].keys())
                     first=False
                 print k+ '  :  '+str([data[k][k2] for k2 in data[k].keys()])
-        
+
 def main():
     if not os.geteuid() == 0:
         sys.exit('Script must be run as root')
@@ -137,7 +141,7 @@ def main():
     parser.add_argument('-p',action='store',type=float,default=5.,help='pause before starting the measurement')
     parser.add_argument('-v', action='store_true', default=True,help='print out measurement result every iteration')
     arg = parser.parse_args(sys.argv[1:])
-    
+
     # init
     print "Init"
     sleep(arg.p)
@@ -148,15 +152,13 @@ def main():
     for i in range(arg.n):
         data= acquire(sensors)
         dispData(arg.v,data)
-#        sendJson(data) # Here is an example sending data to an API. 
+#        sendJson(data) # Here is an example sending data to an API.
         sleep(arg.t)
-        
-        
-        
- 
- 
- 
+
+
+
+
+
+
 if __name__ == '__main__':
     main()
- 
-

@@ -81,7 +81,7 @@ class IRTemperatureSensorTMP007(SensorBase):
     ctrlUUID = _TI_UUID(0xAA02)
 
     SCALE_LSB = 0.03125;
- 
+
     def __init__(self, periph):
         SensorBase.__init__(self, periph)
 
@@ -301,7 +301,7 @@ class KeypressSensor(SensorBase):
 
     def __init__(self, periph):
         SensorBase.__init__(self, periph)
- 
+
     def enable(self):
         SensorBase.enable(self)
         # NB handle value changed between v1.4 and v1.5 firmware,
@@ -361,11 +361,11 @@ class KeypressDelegate(DefaultDelegate):
     BUTTON_R = 0x01
     ALL_BUTTONS = (BUTTON_L | BUTTON_R)
 
-    _button_desc = { 
+    _button_desc = {
         BUTTON_L : "Left button",
         BUTTON_R : "Right button",
         ALL_BUTTONS : "Both buttons"
-    } 
+    }
 
     def __init__(self):
         DefaultDelegate.__init__(self)
