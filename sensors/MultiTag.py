@@ -23,6 +23,7 @@ def autopairing(timeout=10.0,devices=None):
     '''
     if devices is None: # Auto scan if no sensors are provided
         BLE=Scanner()
+        
         print "scanning in progress \n"
         devices = BLE.scan(timeout)
 
@@ -135,8 +136,8 @@ def old_main():
         sleep(arg.t)
 
 def main():
-    if not os.geteuid() == 0:
-        sys.exit('Script must be run as root')
+    """if not os.geteuid() == 0:
+        sys.exit('Script must be run as root')"""
     print "Init"
     sensors=autopairing()
     print "Done"
@@ -158,4 +159,4 @@ def DummyJson():
 
 if __name__ == '__main__':
     sendJson(DummyJson())
-#    main()
+    main()
