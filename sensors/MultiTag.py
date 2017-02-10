@@ -17,13 +17,14 @@ import boto3
 from botocore.client import Config
 from botocore.exceptions import ClientError
 
+from gpio import gpio
 
 def autopairing(timeout=10.0,devices=None):
     '''Autoscan BLE for neighbouring advertising Sensortag and turn on environmental sensors
     '''
     if devices is None: # Auto scan if no sensors are provided
         BLE=Scanner()
-        
+
         print "scanning in progress \n"
         devices = BLE.scan(timeout)
 
@@ -65,7 +66,7 @@ def acquire(Sensors):
     Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash.
     '''
 
-    data=()
+    data=[]
     for tag in Sensors:
         meas={}
         loc=tag.IRtemperature.read()
@@ -80,12 +81,12 @@ def acquire(Sensors):
         # Adding the measured value to the globale dict.
         meas['ID']=tag.addr
         data.append(meas)
-        
-    return meas
+
+    return data
 
 def sendJson(input_json):
     """send JSON to Amazon bucket """
-        
+
     s3_client = boto3.client('s3')
     s3 = boto3.resource('s3')
     current_time=gmtime()
@@ -106,11 +107,10 @@ def dispData(verbose,data=None):
     else:
         first=True
         for meas in data:
-            if not 'LocalTime' in k:
                 if first :
-                    print  strftime("%d %b %Y %H:%M:%S", data['LocalTime'])+'  :  ' + str(meas.keys())
+                    print  datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")+'  :  ' + str(meas.keys())
                     first=False
-                print k+ '  :  '+str([meas[k2] for k2 in meas.keys()])
+                print ' :'+str([meas[k2] for k2 in meas.keys()])
 
 def old_main():
     if not os.geteuid() == 0:
@@ -141,13 +141,24 @@ def main():
     print "Init"
     sensors=autopairing()
     print "Done"
+    print "GPIO Init"
+    #fixme : update pin number
+    windows_dict={}
+    windows=[gpio(12,'tableau'), gpio(21,'middle'), gpio(17,'loin')]
+    for w in windows:
+        windows_dict[w.ID] = w.getState()
+    sendJson(windows_dict)
     # main loop / no error managment
     print "starting measurements"
     while True:
-        
+
         data= acquire(sensors)
         for meas in data:
             sendJson(meas)
+        for w in windows:
+            windows_dict[w.ID] = w.getState()
+            sendJson(windows_dict)
+
         dispData(True,data)
         sleep(10)
 
