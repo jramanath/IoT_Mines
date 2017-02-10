@@ -61,7 +61,6 @@ def autopairing(timeout=10.0,devices=None):
 
 def acquire(Sensors):
     '''Read sensors measured value and return a data dictionary
-
     Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash.
     '''
 
@@ -83,8 +82,6 @@ def acquire(Sensors):
         
     return meas
 
-
-
 def sendJson(input_json):
     """send JSON to Amazon bucket """
         
@@ -100,7 +97,6 @@ def sendJson(input_json):
 
     except Exception as e:
         print('BOTO : ' + str(e.message)) # not crashing if error
-
 
 def dispData(verbose,data=None):
     ''' display data if verbose is True and data are provided'''
@@ -163,4 +159,3 @@ def DummyJson():
 if __name__ == '__main__':
     sendJson(DummyJson())
 #    main()
-
