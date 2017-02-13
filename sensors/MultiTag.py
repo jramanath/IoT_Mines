@@ -66,22 +66,35 @@ def acquire(Sensors):
     Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash.
     '''
 
-    data=[]
+    data={}
     for tag in Sensors:
-        meas={}
-        loc=tag.IRtemperature.read()
-        meas['IRamb']=loc[0] # IR Temperature in degC
-        meas['IRobj']=loc[1] # IR Temperature in degC
-        loc=tag.humidity.read()
-        meas['T']=loc[0] # T in degC
-        meas['RH']=loc[1] #HR in %
-        meas['Illum']=tag.lightmeter.read() # Illuminance
-        # Add relevant measurement here.
+        data['%s' %(tag.addr)] = []
+        current_time=gmtime()
 
+        data['%s' %(tag.addr)].append('%s' %(datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")))
+        loc=tag.IRtemperature.read()
+        data['%s' %(tag.addr)].append(loc[0]) # IR Temperature in degC
+        data['%s' %(tag.addr)].append(loc[1]) # IR Temperature in degC
+
+        loc=tag.humidity.read()
+        data['%s' %(tag.addr)].append(loc[0]) # T in degC
+        data['%s' %(tag.addr)].append(loc[1]) # HR in %
+
+        data['%s' %(tag.addr)].append.(tag.lightmeter.read()) # Illuminance
+        # Add relevant measurement here.
         # Adding the measured value to the globale dict.
-        meas['ID']=tag.addr
         data.append(meas)
 
+# finalement
+
+# data ['code mac'][O] = IRlamb
+# data ['code mac'][1] = IRlobj
+# data ['code mac'][2] = Temperature in degC
+# data ['code mac'][3] = Humidité en %
+# data ['code mac'][4] = Luminosité
+
+#
+    data = json.dumps(data)
     return data
 
 def sendJson(input_json):
@@ -162,12 +175,12 @@ def main():
         dispData(True,data)
         sleep(10)
 
-def DummyJson():
+"""def DummyJson():
     data={}
     data['truc']=42
-    return data
+    return data"""
 
 
 if __name__ == '__main__':
-    sendJson(DummyJson())
+    """sendJson(DummyJson())"""
     main()
