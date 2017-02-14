@@ -37,13 +37,13 @@ class DataCapteursTI(models.Model):
 
     id = models.AutoField(primary_key=True)
     #date et heure
-    datetime = models.DateTimeField(auto_now=False, auto_now_add=False)
+    creationdatetime = models.DateTimeField(auto_now=False, auto_now_add=False)
     #temperature en degres celsius
-    Temperature = models.DecimalField(max_digits=4, decimal_places=2)
+    Temperature = models.FloatField(null=True, blank=True)
     # humidite en pourcentage
-    RH = models.DecimalField(max_digits=4, decimal_places=2)
+    RH = models.FloatField(null=True, blank=True)
     #luminosite
-    Illum = models.DecimalField(max_digits=6, decimal_places=2)
+    Illum = models.FloatField(null=True, blank=True)
     #code du capteur
     ID = models.CharField(max_length=100, blank=True, null=True)
 
@@ -51,8 +51,10 @@ class DataCapteursFenetres(models.Model):
 
     id = models.AutoField(primary_key=True)
     #date et heure
-    datetime = models.DateTimeField(auto_now=False, auto_now_add=False)
+    creationdatetime = models.DateTimeField(auto_now=False, auto_now_add=False)
+    #etat ouverture fenetre
     windows_state = models.BooleanField()
+    
 
 
 

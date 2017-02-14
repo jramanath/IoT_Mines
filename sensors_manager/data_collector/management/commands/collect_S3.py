@@ -37,6 +37,8 @@ class Command(BaseCommand):
         logger.info(msg)
 
         # créer la connexion à S3
+        #utiliser le package boto pour obtenir une liste des fichiers du bucket
+        #identifier les fichiers à ajouter : lire la table dataloader et extraire une liste des fichiers déjà importés
 
         # identifier les fichiers à ajouter à la base de données
 
