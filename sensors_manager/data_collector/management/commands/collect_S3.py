@@ -10,6 +10,7 @@ from datetime import datetime
 import pytz
 import logging
 import boto
+import boto.s3.connection
 import json
 import pandas as pd
 import numpy as np
@@ -61,8 +62,8 @@ class S3Connection(object):
         self.conn = conn
 
         # bucket
-        mybucket = None
-        files = []
+        self.mybucket = None
+        self.files = []
 
         if bucket_name is not None:
             mybucket = conn.get_bucket(bucket_name, validate=False)
@@ -147,27 +148,27 @@ def loading_manager():
     # connexion à S3
     s3_connector = S3Connection(bucket_name=settings.BUCKET_NAME)
 
-    # nom des fichiers dans le bucket
-    bucket_files = [str(f.key) for f in s3_connector.files]
+    # fichiers déjà passés en revue
+    qs = DataLoader.objects.values('id', 'file')
 
-    # fichiers déjà chargés
-    qs = DataLoader.objects.filter(status=True) \
-        .values('id', 'file')
+    files_in_bdd = pd.DataFrame.from_records(qs)
+    if len(files_in_bdd):
+        files_in_bdd = files_in_bdd['file'].values.tolist()
+    else:
+        files_in_bdd = []
 
-    loaded_files = pd.DataFrame.from_records(qs)
-    loaded_files = loaded_files['file'].values.tolist()
-
-    # identifier les fichiers à ajouter à la base de données
+    # fichiers à ajouter à la base de données
     files_to_load = [f for f in s3_connector.files if
-                     str(f.key) not in loaded_files]
+                     str(f.key) not in files_in_bdd]
 
-    logger.info(u"Nb de nvx fichiers de "
-                u"mesures dans le bucket : %s ", len(files_to_load))
+    logger.info(u"Nb de nvx fichiers de mesures "
+                u"dans le bucket passés en revue : %s ", len(files_to_load))
 
     # parser les nouveaux fichiers
     # et concaténer les mesures à ajouter à la bdd
     TI_measures = []
     windows_measures = []
+    loaded_files = []
 
     for f in files_to_load:
         # une mesure de TI
@@ -178,24 +179,28 @@ def loading_manager():
                 logger.error(u"Erreur : %s ", e.args[0])
 
             TI_measures.append(parsed_file.measure)
+            loaded_files.append([str(f.key), True])
 
-        if 'windows' in str(f.key):
+        elif 'windows' in str(f.key):
             try:
                 parsed_file = ParsingWindowsFiles(f)
             except Exception as e:
                 logger.error(u"Erreur : %s ", e.args[0])
 
             windows_measures.append(parsed_file.measure)
+            loaded_files.append([str(f.key), True])
 
-    # on peut insérer dans la bdd par bulk
+        else:
+            loaded_files.append([str(f.key), False])
+
+    # on insère en bulk
 
     # mesures de fenêtre
     _cols = ['creation', 'sensor', 'state']
     windows_measures = pd.DataFrame(windows_measures, columns=_cols)
+    logger.info(u"Nb de mesures fenêtre ajoutées : %s ", len(windows_measures))
 
     if len(windows_measures):
-        logger.info(u"Nb de mesures fenêtre ajoutées : %s ", len(windows_measures))
-
         new_objects = [DataWindowsSensor(creation=row['creation'],
                                          sensor=row['sensor'],
                                          windows_state=row['state'])
@@ -203,13 +208,12 @@ def loading_manager():
 
         DataWindowsSensor.objects.bulk_create(new_objects)
 
-        _cols = ['creation', 'temperature', 'humidity', 'illuminance', 'sensor']
-        TI_measures = pd.DataFrame(windows_measures, columns=_cols)
-
     # mesures de TI
-    if len(TI_measures):
-        logger.info(u"Nb de mesures TI ajoutées : %s ", len(TI_measures))
+    _cols = ['creation', 'temperature', 'humidity', 'illuminance', 'sensor']
+    TI_measures = pd.DataFrame(TI_measures, columns=_cols)
+    logger.info(u"Nb de mesures TI ajoutées : %s ", len(TI_measures))
 
+    if len(TI_measures):
         new_objects = [DataTISensor(creation=row['creation'],
                                     temperature=row['temperature'],
                                     humidity=row['humidity'],
@@ -218,6 +222,17 @@ def loading_manager():
                        for index, row in TI_measures.iterrows()]
 
         DataTISensor.objects.bulk_create(new_objects)
+
+    # fichiers chargés
+    _cols = ['file', 'status']
+    loaded_files = pd.DataFrame(loaded_files, columns=_cols)
+
+    if len(loaded_files):
+        new_objects = [DataLoader(file=row['file'],
+                                  status=row['status'])
+                       for index, row in loaded_files.iterrows()]
+
+        DataLoader.objects.bulk_create(new_objects)
 
     # fin = arrêt de la connexion S3
     s3_connector.conn.close()
@@ -242,25 +257,24 @@ class Command(BaseCommand):
         logger.info(msg)
 
         # vérification script en cours
-        if config.COLLECT_S3_IN_PROGRESS:
+        if config.S3_COLLECT_IN_PROGRESS:
             logger.error(u"Attention, script collect_S3 "
                          u"déjà en cours d'exécution, opération "
                          u"annulée")
             return
 
-        config.COLLECT_S3_IN_PROGRESS = True
+        config.S3_COLLECT_IN_PROGRESS = True
 
         # exécution en fonction du mode de mise à jour
         try:
             loading_manager()
+            logger.info(u'Les données ont été ajoutées à la BDD')
         except Exception as e:
             logger.error(repr(e), exc_info=True)
             raise
         finally:
             # script terminé
-            config.COLLECT_S3_IN_PROGRESS = False
-
-        logger.info(u'Les données ont été ajoutées à la BDD')
+            config.S3_COLLECT_IN_PROGRESS = False
 
         now = pytz.utc.localize(datetime.now())
         pretty_now = datetime_format(now)

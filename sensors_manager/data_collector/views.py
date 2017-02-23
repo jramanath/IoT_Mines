@@ -45,7 +45,7 @@ def default_view(request):
     logger.info("%s %s", request.method, urllib.unquote(request.body))
 
     # compter le nombre de mesures / fichiers chargées
-    nb_fichier = DataLoader.objects.count()
+    nb_fichier = DataLoader.objects.filter(status=True).count()
     nb_mesures_TI = DataTISensor.objects.count()
     nb_mesures_windows = DataWindowsSensor.objects.count()
 

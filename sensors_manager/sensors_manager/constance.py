@@ -11,9 +11,9 @@ CONSTANCE_CONFIG = OrderedDict([
     # (VARIABLE, (DEFAULT_VALUE, DESCRIPTION, [TYPE])),
 
     # Collect bucket S3
-    ('COLLECT_S3_IN_PROGRESS', (
+    ('S3_COLLECT_IN_PROGRESS', (
         False,
-        u"Est-ce que la synchro automatique est activée ?",
+        u"Est-ce que la collecte des données S3 est activée ?",
         bool,
     )),
 ])

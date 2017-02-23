@@ -11,8 +11,11 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/1.9/ref/settings/
 """
 
+from collections import OrderedDict
 import os
 
+# pylint: disable=import-error
+from .constance import CONSTANCE_CONFIG
 
 # import environment-specific configuration
 from .settings_env import (
@@ -58,6 +61,12 @@ MINES_APPS = [
 ]
 
 INSTALLED_APPS += MINES_APPS
+
+CONSTANCE_CONFIG_FIELDSETS = OrderedDict([
+    ('S3', tuple(
+        var for var in CONSTANCE_CONFIG.keys() if var[:2] == 'S3')),
+])
+
 
 CONSTANCE_BACKEND = 'constance.backends.database.DatabaseBackend'
 
