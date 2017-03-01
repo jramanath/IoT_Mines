@@ -95,10 +95,10 @@ class ParsingTIFiles(object):
 
         try:
             self.creation_datetime = data['creation_datetime']
-            self.temperature = data['temperature']
-            self.humidity = data['humidity']
-            self.illuminance = data['illuminance']
-            self.sensor = data['sensor']
+            self.temperature = data['Temperature']
+            self.humidity = data['Humidite']
+            self.illuminance = data['Luminosite']
+            self.sensor = data['ID']
 
         except KeyError as e:
             msg = "Paramètre manquant: {e.args[0]}"
@@ -128,7 +128,7 @@ class ParsingWindowsFiles(object):
 
         try:
             self.creation_datetime = data['creation_datetime']
-            self.sensor = data['sensor']
+            self.sensor = data['ID']
             self.windows_state = data['windows_state']
 
         except KeyError as e:
