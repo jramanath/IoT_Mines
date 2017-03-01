@@ -54,7 +54,7 @@ class S3Connection(object):
         conn = boto.s3.connect_to_region(
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name='eu-west-2',
+            region_name='eu-central-1',
             calling_format=boto.s3.connection.OrdinaryCallingFormat(),
             **kwargs
         )
