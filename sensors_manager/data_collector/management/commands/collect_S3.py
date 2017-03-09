@@ -128,14 +128,15 @@ class ParsingWindowsFiles(object):
 
         try:
             self.creation_datetime = data['creation_datetime']
-            self.sensor = data['ID']
-            self.windows_state = data['windows_state']
+            self.Tableau = data['Tableau']
+            self.Milieu = data['Milieu']
+            self.Fond = data['Fond']
 
         except KeyError as e:
             msg = "Paramètre manquant: {e.args[0]}"
             raise BadParametersException(msg.format(e=e))
 
-        self.measure = [self.creation_datetime, self.sensor, self.windows_state]
+        self.measure = [self.creation_datetime, self.Tableau, self.Milieu, self.Fond]
 
 
 def loading_manager():
@@ -196,6 +197,9 @@ def loading_manager():
     # on insère en bulk
 
     # mesures de fenêtre
+
+    # Faut il changer ici aussi les noms des paramètres des cpateurs TI ?
+
     _cols = ['creation', 'sensor', 'state']
     windows_measures = pd.DataFrame(windows_measures, columns=_cols)
     logger.info(u"Nb de mesures fenêtre ajoutées : %s ", len(windows_measures))
@@ -209,12 +213,15 @@ def loading_manager():
         DataWindowsSensor.objects.bulk_create(new_objects)
 
     # mesures de TI
+
+    # Faut il changer ici aussi les noms des paramètres des cpateurs TI ?
+
     _cols = ['creation', 'temperature', 'humidity', 'illuminance', 'sensor']
     TI_measures = pd.DataFrame(TI_measures, columns=_cols)
     logger.info(u"Nb de mesures TI ajoutées : %s ", len(TI_measures))
 
     if len(TI_measures):
-        new_objects = [DataTISensor(creation=row['creation'],
+        new_objects = [DataTISensor(creation=row['creation'],    #Faut-il changer ici aussi les noms des paramètres ?
                                     temperature=row['temperature'],
                                     humidity=row['humidity'],
                                     illuminance=row['illuminance'],
