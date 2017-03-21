@@ -1,2 +1,6 @@
 *.pyc
 .idea/
+*.sqlite3
+
+# fichier de config
+sensors_manager/sensors_manager/settings_env.py
