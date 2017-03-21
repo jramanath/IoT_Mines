@@ -51,8 +51,9 @@ class DataWindowsSensor(models.Model):
 
     id = models.AutoField(primary_key=True)  # id unique
     creation = models.DateTimeField(auto_now=False, auto_now_add=False)  # date et heure
-    sensor = models.CharField(max_length=100, blank=True, null=True)  # sensor id
-    windows_state = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenetre
+    tableau = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenêtre du tableau
+    milieu = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenêtre du milieu
+    fond = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenetre du fond
 
     objects = DataFrameManager()
 

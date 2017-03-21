@@ -23,6 +23,7 @@ from .settings_env import (
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
     BUCKET_NAME,
+    REGION_NAME,
 )
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)

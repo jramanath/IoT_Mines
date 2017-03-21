@@ -54,7 +54,7 @@ class S3Connection(object):
         conn = boto.s3.connect_to_region(
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            region_name='eu-central-1',
+            region_name=settings.REGION_NAME,
             calling_format=boto.s3.connection.OrdinaryCallingFormat(),
             **kwargs
         )
@@ -82,29 +82,31 @@ class ParsingTIFiles(object):
     """
 
     def __init__(self, s3_file):
-
+        logger = logging.getLogger(__name__)
         try:
             data = s3_file.get_contents_as_string()
 
         except Exception as e:
-            msg = "Erreur dans la lecture du fichier: {e.args[0]}"
-            raise BadS3FilesException(msg.format(e=e))
+            msg = u"Erreur dans la lecture du fichier: {e.args[0]}"
+            logger.error(msg.format(e=e))
+            raise BadS3FilesException(msg)
 
         # conversion json
         data = json.loads(data)
 
         try:
-            self.creation_datetime = data['creation_datetime']
+            self.creation = data['creation_datetime']
             self.temperature = data['Temperature']
             self.humidity = data['Humidite']
             self.illuminance = data['Luminosite']
             self.sensor = data['ID']
 
         except KeyError as e:
-            msg = "Paramètre manquant: {e.args[0]}"
-            raise BadParametersException(msg.format(e=e))
+            msg = u"Paramètre manquant: {e.args[0]}"
+            logger.error(msg.format(e=e))
+            raise BadParametersException(msg)
 
-        self.measure = [self.creation_datetime, self.temperature, self.humidity, self.illuminance,
+        self.measure = [self.creation, self.temperature, self.humidity, self.illuminance,
                         self.sensor]
 
 
@@ -115,28 +117,30 @@ class ParsingWindowsFiles(object):
     """
 
     def __init__(self, s3_file):
-
+        logger = logging.getLogger(__name__)
         try:
             data = s3_file.get_contents_as_string()
 
         except Exception as e:
-            msg = "Erreur dans la lecture du fichier: {e.args[0]}"
+            msg = u"Erreur dans la lecture du fichier: {e.args[0]}"
+            logger.error(msg.format(e=e))
             raise BadS3FilesException(msg.format(e=e))
 
         # conversion json
         data = json.loads(data)
 
         try:
-            self.creation_datetime = data['creation_datetime']
-            self.Tableau = data['Tableau']
-            self.Milieu = data['Milieu']
-            self.Fond = data['Fond']
+            self.creation = data['creation_datetime']
+            self.tableau = data['Tableau']
+            self.milieu = data['Milieu']
+            self.fond = data['Fond']
 
         except KeyError as e:
-            msg = "Paramètre manquant: {e.args[0]}"
+            msg = u"Paramètre manquant: {e.args[0]}"
+            logger.error(msg.format(e=e))
             raise BadParametersException(msg.format(e=e))
 
-        self.measure = [self.creation_datetime, self.Tableau, self.Milieu, self.Fond]
+        self.measure = [self.creation, self.tableau, self.milieu, self.fond]
 
 
 def loading_manager():
@@ -176,20 +180,21 @@ def loading_manager():
         if 'TI' in str(f.key):
             try:
                 parsed_file = ParsingTIFiles(f)
-            except Exception as e:
-                logger.error(u"Erreur : %s ", e.args[0])
+                TI_measures.append(parsed_file.measure)
+                loaded_files.append([str(f.key), True])
 
-            TI_measures.append(parsed_file.measure)
-            loaded_files.append([str(f.key), True])
+            except Exception as e:
+                msg = u"Erreur de parsing : {e.args[0]}"
+                logger.error(msg.format(e=e))
 
         elif 'windows' in str(f.key):
             try:
                 parsed_file = ParsingWindowsFiles(f)
+                windows_measures.append(parsed_file.measure)
+                loaded_files.append([str(f.key), True])
             except Exception as e:
-                logger.error(u"Erreur : %s ", e.args[0])
-
-            windows_measures.append(parsed_file.measure)
-            loaded_files.append([str(f.key), True])
+                msg = u"Erreur de parsing : {e.args[0]}"
+                logger.error(msg.format(e=e))
 
         else:
             loaded_files.append([str(f.key), False])
@@ -198,16 +203,15 @@ def loading_manager():
 
     # mesures de fenêtre
 
-    # Faut il changer ici aussi les noms des paramètres des cpateurs TI ?
-
-    _cols = ['creation', 'sensor', 'state']
+    _cols = ['creation', 'tableau', 'milieu', 'fond']
     windows_measures = pd.DataFrame(windows_measures, columns=_cols)
     logger.info(u"Nb de mesures fenêtre ajoutées : %s ", len(windows_measures))
 
     if len(windows_measures):
         new_objects = [DataWindowsSensor(creation=row['creation'],
-                                         sensor=row['sensor'],
-                                         windows_state=row['state'])
+                                         tableau=row['tableau'],
+                                         milieu=row['milieu'],
+                                         fond=row['fond'])
                        for index, row in windows_measures.iterrows()]
 
         DataWindowsSensor.objects.bulk_create(new_objects)
@@ -221,7 +225,7 @@ def loading_manager():
     logger.info(u"Nb de mesures TI ajoutées : %s ", len(TI_measures))
 
     if len(TI_measures):
-        new_objects = [DataTISensor(creation=row['creation'],    #Faut-il changer ici aussi les noms des paramètres ?
+        new_objects = [DataTISensor(creation=row['creation'],
                                     temperature=row['temperature'],
                                     humidity=row['humidity'],
                                     illuminance=row['illuminance'],
