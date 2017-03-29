@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
 Ce script permet d'aggréger les données de tous les capteurs utilisés
@@ -104,7 +105,7 @@ def acquire(Sensors):
     of the sensor make the full function to crash.
     """
     data = []
-    for tag,ind in enumerate(Sensors):
+    for ind,tag in enumerate(Sensors):
 
         try :
             meas = {}
@@ -119,7 +120,8 @@ def acquire(Sensors):
             # Add relevant measurement here.
             # Adding the measured value to the globale dict.
             data.append(meas)
-        except :
+        except Exception as e :
+            print(e.message)
             tag2 = reconnect(tag)
             if tag is None:
                 Sensors.remove(tag)
@@ -199,9 +201,11 @@ def main():
     print("Starting TI measurements")
     while True:
         data = acquire(sensors)
+        dispData(True, data)
+
         # envoyer autant de json que de capteur TI
-        for i in range(0, len(data)+1):
-            sendJson_TI(data[i])
+        for dat in data:
+            sendJson_TI(dat)
         #recuperer les mesures fenetres
         windows_dict = {}
         for w in windows:
@@ -210,7 +214,6 @@ def main():
         windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
         # envoyer la mesure fenêtre
         sendJson_windows(windows_dict)
-        dispData(True, data)
         sleep(300)  # Prise de mesure toutes les 5 minutes environ
 
 
