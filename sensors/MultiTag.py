@@ -62,6 +62,40 @@ def autopairing(timeout=10.0, devices=None):
     del devices
     return Sensors
 
+def reconnect(tag):
+### try reconnecting lost sensor###
+    print("Device %s has lost connection, reconnecting" % (tag.deviceAddr))
+
+    addr=tag.deviceAddr
+    sleep(1)
+    idx=0
+    while idx<2:
+        try :
+            tag.disconnect()
+        except :
+            pass
+        tag = None
+        try:
+            idx+=1
+            tag = sensortag.SensorTag(addr)
+            tag.addr =addr
+
+            # Add here relevant sensors to enable at start. check from sensortag.py for more info
+            tag.lightmeter.enable()
+            tag.humidity.enable()
+            tag.IRtemperature.enable()
+            break
+        except Exception as e:
+            print("problem reconnecting device, retry %d out of %d" %(idx,2))
+            print(e)
+
+        if idx==2:
+            print("Device %s is lost" % (tag.deviceAddr))
+            return None
+
+        print("Device %s sucessfully reconnected" % (tag.deviceAddr))
+        return tag
+
 
 def acquire(Sensors):
     """
@@ -69,21 +103,29 @@ def acquire(Sensors):
     Warning : this is not error proof : any disconnection from one
     of the sensor make the full function to crash.
     """
-
     data = []
-    for tag in Sensors:
-        meas = {}
-        meas['ID'] = tag.addr
-        loc = tag.humidity.read()
+    for tag,ind in enumerate(Sensors):
 
-        meas['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
-        meas['Temperature'] = loc[0]  # T in C°
-        meas['Humidite'] = loc[1]  # HR in %
-        meas['Luminosite'] = tag.lightmeter.read()  # Illuminance
+        try :
+            meas = {}
+            meas['ID'] = tag.addr
+            loc = tag.humidity.read()
 
-        # Add relevant measurement here.
-        # Adding the measured value to the globale dict.
-        data.append(meas)
+            meas['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+            meas['Temperature'] = loc[0]  # T in C°
+            meas['Humidite'] = loc[1]  # HR in %
+            meas['Luminosite'] = tag.lightmeter.read()  # Illuminance
+
+            # Add relevant measurement here.
+            # Adding the measured value to the globale dict.
+            data.append(meas)
+        except :
+            tag2 = reconnect(tag)
+            if tag is None:
+                Sensors.remove(tag)
+            else:
+                Sensors[ind]=tag2
+
     return data
 
 
@@ -137,7 +179,7 @@ def dispData(verbose, data=None):
                     now = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
                     print(now + '  :  ' + str(meas.keys()))
                     first = False
-                print ' :'+str([meas[k2] for k2 in meas.keys()])
+                print(' :'+str([meas[k2] for k2 in meas.keys()]))
 
 
 def main():
@@ -150,12 +192,9 @@ def main():
     print("Done !")
 
     print("GPIO Init")
-    windows_dict = {}
-    windows = [gpio(12, 'Tableau'), gpio(21, 'Milieu'), gpio(17, 'Fond')]
-    for w in windows:
-        windows_dict[w.ID] = w.getState()
 
-    windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+    windows = [gpio(12, 'Tableau'), gpio(21, 'Milieu'), gpio(17, 'Fond')]
+
 
     print("Starting TI measurements")
     while True:
@@ -163,7 +202,12 @@ def main():
         # envoyer autant de json que de capteur TI
         for i in range(0, len(data)+1):
             sendJson_TI(data[i])
+        #recuperer les mesures fenetres
+        windows_dict = {}
+        for w in windows:
+            windows_dict[w.ID] = w.getState()
 
+        windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
         # envoyer la mesure fenêtre
         sendJson_windows(windows_dict)
         dispData(True, data)
