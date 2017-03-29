@@ -85,7 +85,7 @@ def reconnect(tag):
             tag.lightmeter.enable()
             tag.humidity.enable()
             tag.IRtemperature.enable()
-            break
+            return tag
         except Exception as e:
             print("problem reconnecting device, retry %d out of %d" %(idx,2))
             print(e)
@@ -93,8 +93,8 @@ def reconnect(tag):
         if idx==2:
             print("Device %s is lost" % (tag.deviceAddr))
             return None
-
-        print("Device %s sucessfully reconnected" % (tag.deviceAddr))
+	if tag is not None : 
+        	print("Device %s sucessfully reconnected" % (tag.deviceAddr))
         return tag
 
 
@@ -123,7 +123,7 @@ def acquire(Sensors):
         except Exception as e :
             print(e.message)
             tag2 = reconnect(tag)
-            if tag is None:
+            if tag2 is None:
                 Sensors.remove(tag)
             else:
                 Sensors[ind]=tag2
@@ -214,7 +214,7 @@ def main():
         windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
         # envoyer la mesure fenêtre
         sendJson_windows(windows_dict)
-        sleep(300)  # Prise de mesure toutes les 5 minutes environ
+        sleep(10)  # Prise de mesure toutes les 5 minutes environ
 
 
 if __name__ == '__main__':
