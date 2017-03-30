@@ -20,6 +20,8 @@ from .constance import CONSTANCE_CONFIG
 # import environment-specific configuration
 from .settings_env import (
     LOGS_DIR,
+    CACHE_DIR,
+    S3_OPTION,
     AWS_ACCESS_KEY_ID,
     AWS_SECRET_ACCESS_KEY,
     BUCKET_NAME,

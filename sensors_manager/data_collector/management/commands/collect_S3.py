@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Script permettant de récupérer des données
-sur S3
+Script permettant de récupérer les données de capteur
+sur un bucket S3 ou en local
 
 Script actionné par un cron qui tourne toutes les 5 mn
 """
@@ -13,7 +13,7 @@ import boto
 import boto.s3.connection
 import json
 import pandas as pd
-import numpy as np
+import os
 
 from django.core.management.base import BaseCommand
 from django.conf import settings
@@ -58,7 +58,6 @@ class S3Connection(object):
             calling_format=boto.s3.connection.OrdinaryCallingFormat(),
             **kwargs
         )
-
         self.conn = conn
 
         # bucket
@@ -81,18 +80,15 @@ class ParsingTIFiles(object):
     des json venant des capteurs TI
     """
 
-    def __init__(self, s3_file):
+    def __init__(self, data):
         logger = logging.getLogger(__name__)
         try:
-            data = s3_file.get_contents_as_string()
+            data = json.load(data)
 
         except Exception as e:
             msg = u"Erreur dans la lecture du fichier: {e.args[0]}"
             logger.error(msg.format(e=e))
-            raise BadS3FilesException(msg)
-
-        # conversion json
-        data = json.loads(data)
+            raise ValueError(msg)
 
         try:
             self.creation = data['creation_datetime']
@@ -116,18 +112,17 @@ class ParsingWindowsFiles(object):
     des json venant des capteurs de fenêtre
     """
 
-    def __init__(self, s3_file):
+    def __init__(self, data):
         logger = logging.getLogger(__name__)
         try:
-            data = s3_file.get_contents_as_string()
+            data = json.load(data)
 
         except Exception as e:
             msg = u"Erreur dans la lecture du fichier: {e.args[0]}"
             logger.error(msg.format(e=e))
-            raise BadS3FilesException(msg.format(e=e))
+            raise ValueError(msg.format(e=e))
 
         # conversion json
-        data = json.loads(data)
 
         try:
             self.creation = data['creation_datetime']
@@ -150,9 +145,6 @@ def loading_manager():
     """
     logger = logging.getLogger(__name__)
 
-    # connexion à S3
-    s3_connector = S3Connection(bucket_name=settings.BUCKET_NAME)
-
     # fichiers déjà passés en revue
     qs = DataLoader.objects.values('id', 'file')
 
@@ -163,11 +155,18 @@ def loading_manager():
         files_in_bdd = []
 
     # fichiers à ajouter à la base de données
-    files_to_load = [f for f in s3_connector.files if
-                     str(f.key) not in files_in_bdd]
+
+    if settings.S3_OPTION:
+        # connexion à S3
+        s3_connector = S3Connection(bucket_name=settings.BUCKET_NAME)
+        files_to_load = [(f, str(f.key)) for f in s3_connector.files if
+                         str(f.key) not in files_in_bdd]
+    else:
+        files_to_load = [(f, f) for f in os.listdir(settings.CACHE_DIR) if
+                         f not in files_in_bdd]
 
     logger.info(u"Nb de nvx fichiers de mesures "
-                u"dans le bucket passés en revue : %s ", len(files_to_load))
+                u"passés en revue : %s ", len(files_to_load))
 
     # parser les nouveaux fichiers
     # et concaténer les mesures à ajouter à la bdd
@@ -175,29 +174,43 @@ def loading_manager():
     windows_measures = []
     loaded_files = []
 
-    for f in files_to_load:
+    for f, name in files_to_load:
         # une mesure de TI
-        if 'TI' in str(f.key):
+        if 'TI' in name:
             try:
-                parsed_file = ParsingTIFiles(f)
+                if settings.S3_OPTION:
+                    data = f.get_contents_as_string()
+                    parsed_file = ParsingTIFiles(data)
+                else:
+                    filepath = settings.CACHE_DIR + name
+                    with open(filepath) as data:
+                        parsed_file = ParsingTIFiles(data)
+
                 TI_measures.append(parsed_file.measure)
-                loaded_files.append([str(f.key), True])
+                loaded_files.append([name, True])
 
             except Exception as e:
                 msg = u"Erreur de parsing : {e.args[0]}"
                 logger.error(msg.format(e=e))
 
-        elif 'windows' in str(f.key):
+        elif 'windows' in name:
             try:
-                parsed_file = ParsingWindowsFiles(f)
+                if settings.S3_OPTION:
+                    data = f.get_contents_as_string()
+                    parsed_file = ParsingTIFiles(data)
+                else:
+                    filepath = settings.CACHE_DIR + name
+                    with open(filepath) as data:
+                        parsed_file = ParsingTIFiles(data)
+
                 windows_measures.append(parsed_file.measure)
-                loaded_files.append([str(f.key), True])
+                loaded_files.append([name, True])
             except Exception as e:
                 msg = u"Erreur de parsing : {e.args[0]}"
                 logger.error(msg.format(e=e))
 
         else:
-            loaded_files.append([str(f.key), False])
+            loaded_files.append([name, False])
 
     # on insère en bulk
 
@@ -246,7 +259,8 @@ def loading_manager():
         DataLoader.objects.bulk_create(new_objects)
 
     # fin = arrêt de la connexion S3
-    s3_connector.conn.close()
+    if settings.S3_OPTION:
+        s3_connector.conn.close()
 
 
 class Command(BaseCommand):

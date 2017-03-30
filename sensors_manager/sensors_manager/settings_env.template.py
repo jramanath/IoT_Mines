@@ -12,3 +12,9 @@ REGION_NAME = ""  # TODO: remplacer par la bonne région
 
 # où sont les logs
 LOGS_DIR = ''  # TODO: remplacer par le bon chemin
+
+# le dossier de récupération en local
+CACHE_DIR = ''  # TODO: remplacer par le bon chemin
+
+# option de récupération = si False -> récupération dans le cache local
+S3_OPTION = False  # TODO: remplacer par le bon chemin
