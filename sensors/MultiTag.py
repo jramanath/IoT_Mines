@@ -1,162 +1,221 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """
 Ce script permet d'aggréger les données de tous les capteurs utilisés
 """
 from bluepy.btle import Scanner
 from bluepy import sensortag
 
-import os,sys
-import argparse
 from time import gmtime, strftime, sleep
+import datetime
 
-import numpy as np
-import requests,json
+import json
+import boto3
+from gpio import gpio
 
-def autopairing(timeout=10.0,devices=None):
-    '''Autoscan BLE for neighbouring advertising Sensortag and turn on environmental sensors
-    '''    
-    if devices is None: # Auto scan if no sensors are provided
-        BLE=Scanner()
-        print "scanning in progress \n"
+
+def autopairing(timeout=10.0, devices=None):
+    """
+    Autoscan BLE for neighbouring advertising Sensortag
+    and turn on environmental sensors
+    """
+
+    # Auto scan if no sensors are provided
+    if devices is None:
+        BLE = Scanner()
+
+        print("Scanning in progress \n")
         devices = BLE.scan(timeout)
-        
-    Sensors=[]
-    dev_list='Liste : \n'
+
+    Sensors = []
+    dev_list = 'Liste : \n'
     for dev in devices:
         if 'SensorTag' in str(dev.getValueText(9)):
-            print "Device %s (SensorTag), RSSI=%d dB" % (dev.addr, dev.rssi)
-            dev_list=dev_list +"Device %s (SensorTag), RSSI=%d dB \n" % (dev.addr, dev.rssi)
+
+            print("Device %s (SensorTag), RSSI=%d dB" % (dev.addr, dev.rssi))
+            dev_list += "Device %s (SensorTag), RSSI=%d dB \n" % (dev.addr, dev.rssi)
             sleep(1)
-            idx=0
+            idx = 0
             while True:
                 try:
-                    tag=sensortag.SensorTag(dev.addr)
-                    tag.addr=dev.addr
+                    tag = sensortag.SensorTag(dev.addr)
+                    tag.addr = dev.addr
+
                     # Add here relevant sensors to enable at start. check from sensortag.py for more info
                     tag.lightmeter.enable()
                     tag.humidity.enable()
                     tag.IRtemperature.enable()
                     Sensors.append(tag)
                     break
-                except Exception as e: # it happens the sensors failed to start for some reasons. Retrying is usually enough to connect. 
-                    print e
-                    print "Sensor disconnected, retrying"
-                    idx+=1
+                except Exception as e:
+                    # it happens that the sensors failed to start for some reasons
+                    # Retrying is usually enough to connect.
+                    print(e)
+                    print("Sensor disconnected, retrying")
+                    idx += 1
                     sleep(.5)
                     pass
-                if idx>5: # if it's not, then you have to remove this sensors from the list
-                    print "Forgetting about THAT sensor"
+                if idx > 5:  # if it's not, then you have to remove this sensors from the list
+                    print("Forgetting about THAT sensor")
                     break
                 # if everything goes well, add the sensors to the list
-                
+
     del devices
     return Sensors
-     
-    
+
+def reconnect(tag):
+### try reconnecting lost sensor###
+    print("Device %s has lost connection, reconnecting" % (tag.deviceAddr))
+
+    addr=tag.deviceAddr
+    sleep(1)
+    idx=0
+    while idx<2:
+        try :
+            tag.disconnect()
+        except :
+            pass
+        tag = None
+        try:
+            idx+=1
+            tag = sensortag.SensorTag(addr)
+            tag.addr =addr
+
+            # Add here relevant sensors to enable at start. check from sensortag.py for more info
+            tag.lightmeter.enable()
+            tag.humidity.enable()
+            tag.IRtemperature.enable()
+            return tag
+        except Exception as e:
+            print("problem reconnecting device, retry %d out of %d" %(idx,2))
+            print(e)
+
+        if idx==2:
+            print("Device %s is lost" % (tag.deviceAddr))
+            return None
+	if tag is not None : 
+        	print("Device %s sucessfully reconnected" % (tag.deviceAddr))
+        return tag
+
+
 def acquire(Sensors):
-    '''Read sensors measured value and return a data dictionary 
-    
-    Warning : this is not error proof : any disconnection from one of the sensor make the full function to crash. 
-    '''
-    
-    data={}
-    data['LocalTime']=gmtime()
-    for tag in Sensors:
-        meas={}
-        loc=tag.IRtemperature.read()
-        meas['IRamb']=loc[0] # IR Temperature in degC
-        meas['IRobj']=loc[1] # IR Temperature in degC
-        loc=tag.humidity.read()
-        meas['T']=loc[0] # T in degC
-        meas['RH']=loc[1] #HR in %
-        meas['Illum']=tag.lightmeter.read() # Illuminance
-        # Add relevant measurement here. 
-        
-        # Adding the measured value to the globale dict.
-        data[tag.addr]=meas
-  
+    """
+    Read sensors measured value and return a data dictionary
+    Warning : this is not error proof : any disconnection from one
+    of the sensor make the full function to crash.
+    """
+    data = []
+    for ind,tag in enumerate(Sensors):
+
+        try :
+            meas = {}
+            meas['ID'] = tag.addr
+            loc = tag.humidity.read()
+
+            meas['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+            meas['Temperature'] = loc[0]  # T in C°
+            meas['Humidite'] = loc[1]  # HR in %
+            meas['Luminosite'] = tag.lightmeter.read()  # Illuminance
+
+            # Add relevant measurement here.
+            # Adding the measured value to the globale dict.
+            data.append(meas)
+        except Exception as e :
+            print(e.message)
+            tag2 = reconnect(tag)
+            if tag2 is None:
+                Sensors.remove(tag)
+            else:
+                Sensors[ind]=tag2
+
     return data
 
 
+def sendJson_TI(input_json):
+    """
+    Send JSON to Amazon bucket from TI sensor
+    """
 
-def sendJson(data,session=None):
-    """send JSON to Amazon bucket """
-    if not session:
-        session=requests.Session() # keep session alive
-        session.headers = {'Content-Type': 'application/json','Accept': 'application/json'} # typical, modify to add credentials if needed
-        session.proxies={} # Add proxies if needed
-        session.url='' # input address of the server here
-        last_data=open('unsent_data.json', 'w') # create back-up file
-        last_data.write('')
-        last_data.close()
+    s3_client = boto3.client('s3')
+
+    filename = 'TI_' + datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC") + '.txt'
 
     try:
-        with open('unsent_data.json', 'a+') as last_data:
-            last_data.write(json.dumps(data)+'\r\n') # save data in case of something bad happen
+        with open(filename, 'w+') as doc:
+            doc.write(json.dumps(input_json))
+        s3_client.upload_file(filename+'.txt', 'sensortag', filename+'.txt')
 
-        with open('unsent_data.json', 'a+') as last_data:
-            data_=last_data.readlines()
-            
-            
-
-        for text in data_:
-            res=self._session.post(self.url,data=text) # adapt to fit your server API ! (this is for Amazon S3 server)
-        
-            if res.status_code != 200:
-                common.display('HTTP : ' +res.content)
-                break
-        if res.status_code == 200:
-            common.display('data sent to server')
-            last_data=open('unsent_data.json', 'w')
-            last_data.write('')
-            last_data.close()
-            
     except Exception as e:
-        print('HTTP : ' + str(e.message)) # not crashing if error
-    finally:
-        return session
+        print('Error while sending to S3 : ' + str(e.message))  # log in case of exception
 
-def dispData(verbose,data=None):
-        ''' display data if verbose is True and data are provided'''
+
+def sendJson_windows(input_json):
+    """
+    Send Json to Amazon bucket from windows sensor
+    """
+
+    s3_client = boto3.client('s3')
+
+    filename = 'windows_' + datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC") + '.txt'
+
+    try:
+        with open(filename, 'w+') as doc:
+            doc.write(json.dumps(input_json))
+        s3_client.upload_file(filename+'.txt', 'sensortag', filename+'.txt')
+
+    except Exception as e:
+        print('Error while sending to S3 : ' + str(e.message))  # log in case of exception
+
+
+def dispData(verbose, data=None):
+    """
+    Display data if verbose is True and data are provided
+    """
+
     if not verbose or data is None:
         return
     else:
-        first=True
-        for k in data.keys():
-            if not 'LocalTime' in k:
-                if first : 
-                    print  strftime("%d %b %Y %H:%M:%S", data['LocalTime'])+'  :  ' + str(data[k].keys())
-                    first=False
-                print k+ '  :  '+str([data[k][k2] for k2 in data[k].keys()])
-        
+        first = True
+        for meas in data:
+                if first:
+                    now = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+                    print(now + '  :  ' + str(meas.keys()))
+                    first = False
+                print(' :'+str([meas[k2] for k2 in meas.keys()]))
+
+
 def main():
-    if not os.geteuid() == 0:
-        sys.exit('Script must be run as root')
-    parser = argparse.ArgumentParser()
-    parser.add_argument('-n', action='store', default=14400,type=int, help="Number of times to loop data")
-    parser.add_argument('-t',action='store',type=float, default=1., help='time between polling')
-    parser.add_argument('-p',action='store',type=float,default=5.,help='pause before starting the measurement')
-    parser.add_argument('-v', action='store_true', default=True,help='print out measurement result every iteration')
-    arg = parser.parse_args(sys.argv[1:])
-    
-    # init
-    print "Init"
-    sleep(arg.p)
-    sensors=autopairing()
-    print "Done"
-    # main loop / no error managment
-    print "starting measurements"
-    for i in range(arg.n):
-        data= acquire(sensors)
-        dispData(arg.v,data)
-#        sendJson(data) # Here is an example sending data to an API. 
-        sleep(arg.t)
-        
-        
-        
- 
- 
- 
+    """
+    Fonction principale permettant de prendre une mesure
+    toutes les 5 minutes et d'envoyer les fichiers Json au bucket
+    """
+    print("Init : autopairing")
+    sensors = autopairing()
+    print("Done !")
+
+    print("GPIO Init")
+
+    windows = [gpio(12, 'Tableau'), gpio(21, 'Milieu'), gpio(17, 'Fond')]
+
+
+    print("Starting TI measurements")
+    while True:
+        data = acquire(sensors)
+        dispData(True, data)
+
+        # envoyer autant de json que de capteur TI
+        for dat in data:
+            sendJson_TI(dat)
+        #recuperer les mesures fenetres
+        windows_dict = {}
+        for w in windows:
+            windows_dict[w.ID] = w.getState()
+
+        windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+        # envoyer la mesure fenêtre
+        sendJson_windows(windows_dict)
+        sleep(10)  # Prise de mesure toutes les 5 minutes environ
+
+
 if __name__ == '__main__':
     main()
- 
-
