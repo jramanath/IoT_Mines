@@ -61,6 +61,7 @@ INSTALLED_APPS = [
 
 MINES_APPS = [
     'data_collector',
+    'data_reader',
 ]
 
 INSTALLED_APPS += MINES_APPS
