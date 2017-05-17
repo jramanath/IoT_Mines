@@ -30,7 +30,7 @@ class DataTISensor(models.Model):
     """
 
     id = models.AutoField(primary_key=True)  # id unique
-    creation = models.DateTimeField(auto_now=False, auto_now_add=False)  # date et heure
+    creation = models.CharField(max_length=100,blank=True,null=True)  # date et heure
     temperature = models.FloatField(null=True, blank=True)  # température en degrés celsius
     humidity = models.FloatField(null=True, blank=True)  # humidité en pourcentage
     illuminance = models.FloatField(null=True, blank=True)  # luminosité
@@ -50,7 +50,7 @@ class DataWindowsSensor(models.Model):
     """
 
     id = models.AutoField(primary_key=True)  # id unique
-    creation = models.DateTimeField(auto_now=False, auto_now_add=False)  # date et heure
+    creation = models.CharField(max_length=100,blank=True,null=True)  # date et heure
     tableau = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenêtre du tableau
     milieu = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenêtre du milieu
     fond = models.NullBooleanField(blank=True, null=True)  # état d'ouverture de la fenetre du fond

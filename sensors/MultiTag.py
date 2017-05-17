@@ -93,7 +93,7 @@ def reconnect(tag):
         if idx==2:
             print("Device %s is lost" % (tag.deviceAddr))
             return None
-	if tag is not None : 
+	if tag is not None :
         	print("Device %s sucessfully reconnected" % (tag.deviceAddr))
         return tag
 
@@ -112,7 +112,7 @@ def acquire(Sensors):
             meas['ID'] = tag.addr
             loc = tag.humidity.read()
 
-            meas['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+            meas['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S UTC")
             meas['Temperature'] = loc[0]  # T in C°
             meas['Humidite'] = loc[1]  # HR in %
             meas['Luminosite'] = tag.lightmeter.read()  # Illuminance
@@ -138,7 +138,7 @@ def sendJson_TI(input_json):
 
     s3_client = boto3.client('s3')
 
-    filename = 'TI_' + datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC") + '.txt'
+    filename = 'TI_' + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S UTC") + '.txt'
 
     try:
         with open(filename, 'w+') as doc:
@@ -156,7 +156,7 @@ def sendJson_windows(input_json):
 
     s3_client = boto3.client('s3')
 
-    filename = 'windows_' + datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC") + '.txt'
+    filename = 'windows_' + datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S UTC") + '.txt'
 
     try:
         with open(filename, 'w+') as doc:
@@ -178,7 +178,7 @@ def dispData(verbose, data=None):
         first = True
         for meas in data:
                 if first:
-                    now = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+                    now = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S UTC")
                     print(now + '  :  ' + str(meas.keys()))
                     first = False
                 print(' :'+str([meas[k2] for k2 in meas.keys()]))
@@ -211,7 +211,7 @@ def main():
         for w in windows:
             windows_dict[w.ID] = w.getState()
 
-        windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H:%M:%S UTC")
+        windows_dict['creation_datetime'] = datetime.datetime.now().strftime("%Y_%m_%d-%H_%M_%S UTC")
         # envoyer la mesure fenêtre
         sendJson_windows(windows_dict)
         sleep(10)  # Prise de mesure toutes les 5 minutes environ

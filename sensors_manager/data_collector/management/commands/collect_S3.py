@@ -144,10 +144,8 @@ def loading_manager():
     des données du bucket S3
     """
     logger = logging.getLogger(__name__)
-
     # fichiers déjà passés en revue
     qs = DataLoader.objects.values('id', 'file')
-
     files_in_bdd = pd.DataFrame.from_records(qs)
     if len(files_in_bdd):
         files_in_bdd = files_in_bdd['file'].values.tolist()
@@ -185,7 +183,6 @@ def loading_manager():
                     filepath = settings.CACHE_DIR + name
                     with open(filepath) as data:
                         parsed_file = ParsingTIFiles(data)
-
                 TI_measures.append(parsed_file.measure)
                 loaded_files.append([name, True])
 
@@ -199,7 +196,7 @@ def loading_manager():
                     data = f.get_contents_as_string()
                     parsed_file = ParsingTIFiles(data)
                 else:
-                    filepath = settings.CACHE_DIR + name
+                    filepath = settings.CACHE_DIR + names
                     with open(filepath) as data:
                         parsed_file = ParsingTIFiles(data)
 
@@ -244,13 +241,10 @@ def loading_manager():
                                     illuminance=row['illuminance'],
                                     sensor=row['sensor'])
                        for index, row in TI_measures.iterrows()]
-
         DataTISensor.objects.bulk_create(new_objects)
-
     # fichiers chargés
     _cols = ['file', 'status']
     loaded_files = pd.DataFrame(loaded_files, columns=_cols)
-
     if len(loaded_files):
         new_objects = [DataLoader(file=row['file'],
                                   status=row['status'])
@@ -292,9 +286,11 @@ class Command(BaseCommand):
 
         # exécution en fonction du mode de mise à jour
         try:
+            print('trying to load')
             loading_manager()
             logger.info(u'Les données ont été ajoutées à la BDD')
         except Exception as e:
+            print('erreur de load')
             logger.error(repr(e), exc_info=True)
             raise
         finally:
